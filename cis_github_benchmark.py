@@ -3,14 +3,13 @@ from github import Github
 import logging
 import sys
 from datetime import datetime
-import platform
+
+import benchmarks
 
 # GLOBALS
 ARGS = {}
 LOGGER = logging.getLogger()
-FILE_DELIMITER = "/"
-if platform.system() == "Windows":
-    FILE_DELIMITER = "\\"
+ALL_BENCHMARKS = ["1.1.3"]
 
 def parseArgs():
     parser = argparse.ArgumentParser(
@@ -47,6 +46,16 @@ def parseArgs():
         "-l", "--log",
         help="Produces a log file of verbose and non-verbose debug information. Defaults to a timestamped file in the current directory"
     )
+    parser.add_argument(
+        "-w", "--whitelist",
+        help="Whitelist of benchmark IDs (comma seperated) to explicitly test against (e.g. 1.1.3,1.1.4). Defaults to running all benchmark tests",
+        default=[]
+    )
+    parser.add_argument(
+        "-b", "--blacklist",
+        help="Blacklist of benchmark IDs (comma seperated) to exclude testing against (e.g. 1.1.3,1.1.4). Defaults to none.",
+        default=[]
+    )
     localArgs = parser.parse_args()
     
     # Setup logging
@@ -67,7 +76,17 @@ def parseArgs():
 
     return localArgs
 
-def benchmark():
+def parseArgList(arg: str):
+    try:
+        argList = arg.split(",")
+        if "," in argList:
+            raise ValueError
+        else:
+            return argList
+    except ValueError:
+        LOGGER.exception(f"FAILED to parse '{arg}'.\nEnsure that your list of IDs is comma seperated and does not terminate with a ','")
+
+def main():
     # Login to GitHub instance
     g = Github(base_url=ARGS.url, login_or_token=ARGS.token)
     if g.get_user().login is None:
@@ -75,9 +94,36 @@ def benchmark():
     else:
         LOGGER.info(f"Successfully logged into {ARGS.url} as {g.get_user().login}")
     
+    # Check connection to target org
+    # TODO
+
+    # Establish list of valid benchmarks
+    benchmarkList = ALL_BENCHMARKS
+    if ARGS.whitelist != []:
+        benchmarkList = parseArgList(ARGS.whitelist)
+
+    if ARGS.blacklist != []:
+        benchmarkList = [x for x in benchmarkList if x not in parseArgList(ARGS.blacklist)]
+
+    if benchmarkList == []:
+        LOGGER.exception("Your blacklist has overriden all valid benchmarks, the list of benchmarks to test is empty. Please verify your blacklist is correct")
+    elif all(benchmark in ALL_BENCHMARKS for benchmark in benchmarkList) is False:
+        LOGGER.exception(f"An invalid benchmark ID was specified. Please check your whitelist/blacklist and try again. The list of valid benchmarks is = '{ALL_BENCHMARKS}'")
+
     # Begin benchmark checks
+    LOGGER.info("Running benchmarks...")
+    result = benchmarks.runBenchmarks(benchmarkList, g, LOGGER)
+
+    # Feedback on result
+    if result == []:
+        LOGGER.info(f"All benchmark tests for {ARGS.url} PASSED")
+    else:
+        failedMarks = [benchmarkResult.id for benchmarkResult in result]
+        LOGGER.error(f"Some benchmark tests for {ARGS.url} FAILED = '{failedMarks}'\nPlease see the report document at {ARGS.report} for more details")
     
+    # Generate report
+    # TODO
 
 if __name__ == "__main__":
     ARGS = parseArgs()
-    benchmark()
+    main()
