@@ -37,6 +37,7 @@ def parseArgs():
         help="No output to the console (log and report file output is still present), only errors will be shown",
         action="store_true"
     )
+    # TODO: Change this to an optional arg. Maybe some people just like reading console output for some reason.
     parser.add_argument(
         "-r", "--report",
         help="Produces a pretty report file containing the discovered findings and recommendations. Defaults to a timestamped file in the current directory but you can specify a path instead",
@@ -55,6 +56,11 @@ def parseArgs():
         "-b", "--blacklist",
         help="Blacklist of benchmark IDs (comma seperated) to exclude testing against (e.g. 1.1.3,1.1.4). Defaults to none.",
         default=[]
+    )
+    parser.add_argument(
+        "-f", "--forks",
+        help="Include forks in the list of repositories to check. Default: False",
+        action="store_true"
     )
     localArgs = parser.parse_args()
     
@@ -93,9 +99,6 @@ def main():
         LOGGER.exception(f"FAILED to login to {ARGS.url} with the provided token")
     else:
         LOGGER.info(f"Successfully logged into {ARGS.url} as {g.get_user().login}")
-    
-    # Check connection to target org
-    # TODO
 
     # Establish list of valid benchmarks
     benchmarkList = ALL_BENCHMARKS
@@ -112,16 +115,17 @@ def main():
 
     # Begin benchmark checks
     LOGGER.info("Running benchmarks...")
-    result = benchmarks.runBenchmarks(benchmarkList, g, LOGGER)
+    result = benchmarks.runBenchmarks(benchmarkList, g, LOGGER, ARGS.forks)
 
     # Feedback on result
     if result == []:
-        LOGGER.info(f"All benchmark tests for {ARGS.url} PASSED")
+        LOGGER.info(f"All benchmark tests for {g.get_user().login} PASSED")
     else:
-        failedMarks = [benchmarkResult.id for benchmarkResult in result]
-        LOGGER.error(f"Some benchmark tests for {ARGS.url} FAILED = '{failedMarks}'\nPlease see the report document at {ARGS.report} for more details")
+        failedMarks = [benchmarkResult["id"] for benchmarkResult in result]
+        LOGGER.error(f"Some benchmark tests for {g.get_user().login} FAILED : '{list(dict.fromkeys(failedMarks))}'")
     
     # Generate report
+    LOGGER.info("Generating report document...")
     # TODO
 
 if __name__ == "__main__":
