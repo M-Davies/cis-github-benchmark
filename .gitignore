@@ -164,3 +164,4 @@ CIS GitHub Benchmark v1.0.0 PDF.pdf
 
 # Ignore codespace changes from now on
 cis-github-benchmark.code-workspace
+.vscode/**
