@@ -63,7 +63,49 @@ def checkBranchProtections(repo: Repository, repoResult: dict, benchmarks: list)
         # Check required review from code owners
         if response.protections.required_pull_request_reviews.require_code_owner_reviews is False:
             LOGGER.error(f"[{repo.full_name}] : Benchmark 1.1.7 FAILED. Trusted code owners are not required to review and approve code change proposals made to their respective owned areas in the code base")
-            response["trusted_owners_not_required"] = False
+            response["trusted_owners_required"] = False
+        
+        # Check branches up to date and required status checks before merging enabled
+        try:
+            if response.protections.required_status_checks.strict is False:
+                LOGGER.error(f"[{repo.full_name}] : Benchmark 1.1.10 FAILED. Pull requests with outdated code can be tested by status checks")
+                response["required_status_checks_strict"] = False
+        except KeyError:
+            LOGGER.error(f"[{repo.full_name}] : Benchmark 1.1.9 FAILED. Pull requests can be merged before status checks pass")
+            response["required_status_checks"] = False
+
+        # Check open comments resolved before accept
+        if response.protections.required_conversation_resolution is False:
+            LOGGER.error(f"[{repo.full_name}] : Benchmark 1.1.11 FAILED. Open conversations do not have to be resolved before the pull request can be merged")
+            response["required_conversation_resolution"] = False
+        
+        # Check commits must be signed
+        if repo.default_branch.get_required_signatures() is False:
+            LOGGER.error(f"[{repo.full_name}] : Benchmark 1.1.12 FAILED. Signed commits are not compulsory")
+            response["signed_commits"] = False
+        
+        # Check linear history enforced
+        if response.protections.required_linear_history is False:
+            LOGGER.error(f"[{repo.full_name}] : Benchmark 1.1.13 FAILED. Linear History is not enforced")
+            response["linear_history"] = False
+
+        # Check branch protections enforced on administrators
+        if response.protections.enforce_admins.enabled is False:
+            LOGGER.error(f"[{repo.full_name}] : Benchmark 1.1.14 FAILED. Branch protections are not enforced for repository or organisation admins")
+            response["enforce_admins"] = False
+        
+        # TODO: Figure out what to do for 1.1.15, "trusted users and teams" could mean anything
+
+        # Check force pushing is denied
+        if response.protections.allow_force_pushes.enabled is True:
+            LOGGER.error(f"[{repo.full_name}] : Benchmark 1.1.16 FAILED. Force pushing is permitted")
+            response["force_pushing_disabled"] = False
+        
+        # Check branch deletions are denied
+        if response.protections.allow_deletions.enabled is True:
+            LOGGER.error(f"[{repo.full_name}] : Benchmark 1.1.17 FAILED. Branch deletions are permitted")
+            response["branch_deleting_disabled"] = False
+    
     return response
 
 def checkFileContents(repo: Repository, repoResult: dict, benchmarks: list):
@@ -128,9 +170,17 @@ def runBenchmarks(benchmarks: list, g: Github, logger: logging.getLogger(), fork
                 "stale_dismissed": True,
                 "restrict_dismiss": True,
                 "dismiss_non_admin": [],
-                "trusted_owners_not_required": False,
+                "trusted_owners_required": True,
                 "codeowners": True,
-                "stale_branches": []
+                "stale_branches": [],
+                "required_status_checks_strict": True,
+                "required_status_checks": True,
+                "required_conversation_resolution": True,
+                "signed_commits": True,
+                "linear_history": True,
+                "enforce_admins": True,
+                "force_pushing_disabled": True,
+                "branch_deleting_disabled": True
             }
             # TODO: Figure out a way to implement white/black listing here
             repoResult = checkBranchProtections(currentRepo, repoResult, benchmarks)
