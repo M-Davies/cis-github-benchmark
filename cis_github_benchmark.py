@@ -23,6 +23,11 @@ def parseArgs():
         required=True
     )
     parser.add_argument(
+        "-o", "--organisation",
+        required=True,
+        help="The name of the GitHub organisation/user to audit. If you are auditing your own account, enter your username here"
+    )
+    parser.add_argument(
         "-u", "--url",
         help="Root URL of the GitHub instance. Defaults to https://api.github.com",
         default="https://api.github.com"
@@ -115,7 +120,13 @@ def main():
 
     # Begin benchmark checks
     LOGGER.info("Running benchmarks...")
-    result = benchmarks.runBenchmarks(benchmarkList, g, LOGGER, ARGS.forks)
+    result = benchmarks.runBenchmarks(
+        benchmarkList,
+        g,
+        LOGGER,
+        ARGS.forks,
+        ARGS.organisation
+    )
 
     # Feedback on result
     if result == []:
